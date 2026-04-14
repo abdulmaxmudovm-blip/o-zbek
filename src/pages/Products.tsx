@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { motion } from 'motion/react';
 import { Search, ShoppingBag, User, MapPin, Phone, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -117,6 +117,45 @@ const products: Product[] = [
 
 const categories = ['Barchasi', 'Elektronika', 'Kiyim-kechak', 'Uy-ro\'zg\'or'];
 
+const ProductCard = memo(({ product, index, onOrder }: { product: Product, index: number, onOrder: (p: Product) => void }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ duration: 0.3, delay: index * 0.05 }}
+  >
+    <Card className="group h-full overflow-hidden transition-all hover:shadow-lg">
+      <div className="aspect-[4/3] overflow-hidden bg-muted">
+        <img
+          src={product.image}
+          alt={product.name}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+          referrerPolicy="no-referrer"
+          loading="lazy"
+        />
+      </div>
+      <CardHeader className="p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-primary uppercase tracking-wider">{product.category}</span>
+          <span className="text-sm font-bold text-primary">{product.price}</span>
+        </div>
+        <CardTitle className="mt-2 text-lg">{product.name}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 pt-0">
+        <p className="text-sm text-muted-foreground line-clamp-2">
+          {product.description}
+        </p>
+      </CardContent>
+      <CardFooter className="p-4 pt-0">
+        <Button className="w-full" onClick={() => onOrder(product)}>
+          <ShoppingBag className="mr-2 h-4 w-4" /> Xarid qilish
+        </Button>
+      </CardFooter>
+    </Card>
+  </motion.div>
+));
+
+ProductCard.displayName = 'ProductCard';
+
 export default function Products() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Barchasi');
@@ -128,22 +167,28 @@ export default function Products() {
     phone: ''
   });
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'Barchasi' || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'Barchasi' || product.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [searchQuery, selectedCategory]);
 
-  const handleOrderSubmit = (e: React.FormEvent) => {
+  const handleOrderSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     setIsOrderComplete(true);
-  };
+  }, []);
 
-  const closeDialog = () => {
+  const closeDialog = useCallback(() => {
     setSelectedProduct(null);
     setIsOrderComplete(false);
     setOrderData({ name: '', address: '', phone: '' });
-  };
+  }, []);
+
+  const handleOrderClick = useCallback((product: Product) => {
+    setSelectedProduct(product);
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -180,40 +225,12 @@ export default function Products() {
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((product, index) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-            >
-              <Card className="group h-full overflow-hidden transition-all hover:shadow-lg">
-                <div className="aspect-[4/3] overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                <CardHeader className="p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-primary uppercase tracking-wider">{product.category}</span>
-                    <span className="text-sm font-bold text-primary">{product.price}</span>
-                  </div>
-                  <CardTitle className="mt-2 text-lg">{product.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 pt-0">
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {product.description}
-                  </p>
-                </CardContent>
-                <CardFooter className="p-4 pt-0">
-                  <Button className="w-full" onClick={() => setSelectedProduct(product)}>
-                    <ShoppingBag className="mr-2 h-4 w-4" /> Xarid qilish
-                  </Button>
-                </CardFooter>
-              </Card>
-            </motion.div>
+            <ProductCard 
+              key={product.id} 
+              product={product} 
+              index={index} 
+              onOrder={handleOrderClick} 
+            />
           ))}
         </div>
 
@@ -248,7 +265,7 @@ export default function Products() {
                     placeholder="Ismingizni kiriting" 
                     required 
                     value={orderData.name}
-                    onChange={(e) => setOrderData({...orderData, name: e.target.value})}
+                    onChange={(e) => setOrderData(prev => ({...prev, name: e.target.value}))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -260,7 +277,7 @@ export default function Products() {
                     placeholder="Manzilingizni kiriting" 
                     required 
                     value={orderData.address}
-                    onChange={(e) => setOrderData({...orderData, address: e.target.value})}
+                    onChange={(e) => setOrderData(prev => ({...prev, address: e.target.value}))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -273,7 +290,7 @@ export default function Products() {
                     placeholder="+998 90 123 45 67" 
                     required 
                     value={orderData.phone}
-                    onChange={(e) => setOrderData({...orderData, phone: e.target.value})}
+                    onChange={(e) => setOrderData(prev => ({...prev, phone: e.target.value}))}
                   />
                 </div>
                 <DialogFooter className="pt-4">
